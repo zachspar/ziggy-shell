@@ -7,23 +7,24 @@ use std::process;
 use std::io::{stdin,stdout,Write};
 use std::path::PathBuf;
 use std::fs::{OpenOptions, File};
+use std::process::Command;
 
 
 struct ZiggyShell {
     cwd: PathBuf,
     command: String,
+    retcode: i32,
 }
 
 
 fn write_history(new_command: &String) {
-    // 1. check if history file exists.
     let mut history_filename = PathBuf::new();
     history_filename.push(dirs::home_dir().unwrap());
     history_filename.push(".zs_history");
-    println!("{}", history_filename.to_str().unwrap());
 
+    // 1. check if history file exists.
     if history_filename.exists() {
-        // append to history file
+        // 2. append to history file
         let new_hist_file = OpenOptions::new().append(true).open(history_filename);
         if new_hist_file.is_ok() {
             let mut new_hist_file = new_hist_file.unwrap();
@@ -34,7 +35,7 @@ fn write_history(new_command: &String) {
         }
     }
     else {
-        // create new history file
+        // 3. create new history file if not exists
         let new_hist_file = File::create(history_filename);
         if new_hist_file.is_ok() {
             let mut new_hist_file = new_hist_file.unwrap();
@@ -49,10 +50,13 @@ fn write_history(new_command: &String) {
 
 fn main() {
     println!("Ziggy Shell");
+
     let mut z_shell = ZiggyShell {
         cwd: env::current_dir().unwrap(),
         command: "".to_string(),
+        retcode: 0,
     };
+
     loop {
         z_shell.cwd = env::current_dir().unwrap_or(dirs::home_dir().unwrap());
         print!("ZS {} > ", &z_shell.cwd.as_path().to_str().unwrap());
@@ -62,21 +66,36 @@ fn main() {
         // write to history file
         write_history(&z_shell.command);
 
+        // remove newline character
         if z_shell.command.chars().next_back().unwrap() == '\n' {
             z_shell.command.pop();
         }
 
+        // remove carriage return character
         if z_shell.command.chars().next_back().unwrap() == '\r' {
             z_shell.command.pop();
         }
 
+        // get parts of command - separate by whitespace
+        let parts = z_shell.command.split_whitespace();
+        // println!("Num parts in command: {}", parts.count());
+
         match z_shell.command.as_str() {
             "cd" => {
-                println!("Changing Dir...");
+                // println!("Changing Dir...");
                 env::set_current_dir(dirs::home_dir().unwrap()).unwrap();
             },
             "exit" => process::exit(0),
-            _ => println!("Implementation to come!"),
+            command => {
+                let retcode = Command::new(command).current_dir(z_shell.cwd).spawn();
+                if retcode.is_ok() {
+                    let mut retcode = retcode.unwrap();
+                    z_shell.retcode = retcode.wait().unwrap().code().unwrap();
+                }
+                else {
+                    println!("Error: Could not execute command `{}`", command);
+                }
+            },
         }
 
         // clear command string
