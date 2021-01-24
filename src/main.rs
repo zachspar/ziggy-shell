@@ -85,6 +85,7 @@ fn main() {
         // println!("Num parts in command: {}", parts.count());
 
         match parts.next().unwrap() {
+            "$?" => println!("{}", z_shell.retcode),
             "cd" => {
                 // println!("Changing Dir...");
                 env::set_current_dir(dirs::home_dir().unwrap()).unwrap();
@@ -92,12 +93,18 @@ fn main() {
             "exit" => process::exit(0),
             command => {
                 // FIXME: add command argument support
-                let retcode = Command::new(command).current_dir(z_shell.cwd).spawn();
-                if retcode.is_ok() {
-                    let mut retcode = retcode.unwrap();
-                    z_shell.retcode = retcode.wait().unwrap().code().unwrap();
+                let child = Command::new(command).args(parts.collect::<Vec<_>>()).current_dir(z_shell.cwd).spawn();
+                if child.is_ok() {
+                    let retcode = child.unwrap().wait();
+                    if retcode.is_ok() {
+                        z_shell.retcode = retcode.unwrap().code().unwrap();
+                    }
+                    else {
+                        z_shell.retcode = 127;
+                    }
                 }
                 else {
+                    z_shell.retcode = 127;
                     println!("Error: Could not execute command `{}`", command);
                 }
             },
