@@ -8,6 +8,7 @@ use std::io::{stdin,stdout,Write};
 use std::path::PathBuf;
 use std::fs::{OpenOptions, File};
 use std::process::Command;
+use colored::Colorize;
 
 
 struct ZiggyShell {
@@ -47,6 +48,10 @@ fn write_history(new_command: &String) {
     }
 }
 
+fn print_command_error(command: &String) {
+    println!("{}: {} `{}`", "Error".red(), "Could not execute command".yellow(), command.as_str().red());
+}
+
 
 fn main() {
     println!("Ziggy Shell");
@@ -59,7 +64,7 @@ fn main() {
 
     loop {
         z_shell.cwd = env::current_dir().unwrap_or(dirs::home_dir().unwrap());
-        print!("ZS {} > ", &z_shell.cwd.as_path().to_str().unwrap());
+        print!("ZS {} > ", &z_shell.cwd.as_path().to_str().unwrap().cyan());
         let _ = stdout().flush();
         stdin().read_line(&mut z_shell.command).expect("Could not parse command!");
 
@@ -105,7 +110,7 @@ fn main() {
                 }
                 else {
                     z_shell.retcode = 127;
-                    println!("Error: Could not execute command `{}`", command);
+                    print_command_error(&z_shell.command);
                 }
             },
         }
