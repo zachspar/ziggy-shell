@@ -66,6 +66,10 @@ fn main() {
         // write to history file
         write_history(&z_shell.command);
 
+        if z_shell.command.trim().eq("") {
+            continue;
+        }
+
         // remove newline character
         if z_shell.command.chars().next_back().unwrap() == '\n' {
             z_shell.command.pop();
@@ -77,16 +81,17 @@ fn main() {
         }
 
         // get parts of command - separate by whitespace
-        let parts = z_shell.command.split_whitespace();
+        let mut parts = z_shell.command.split_whitespace();
         // println!("Num parts in command: {}", parts.count());
 
-        match z_shell.command.as_str() {
+        match parts.next().unwrap() {
             "cd" => {
                 // println!("Changing Dir...");
                 env::set_current_dir(dirs::home_dir().unwrap()).unwrap();
             },
             "exit" => process::exit(0),
             command => {
+                // FIXME: add command argument support
                 let retcode = Command::new(command).current_dir(z_shell.cwd).spawn();
                 if retcode.is_ok() {
                     let mut retcode = retcode.unwrap();
