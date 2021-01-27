@@ -1,3 +1,4 @@
+#![feature(option_result_contains)]
 /*
     Ziggy Shell
     A simple terminal shell written in Rust.
@@ -5,7 +6,7 @@
 use std::env;
 use std::process;
 use std::io::{stdin,stdout,Write};
-use std::path::PathBuf;
+use std::path::{PathBuf};
 use std::fs::{OpenOptions, File};
 use std::process::Command;
 use colored::Colorize;
@@ -64,7 +65,7 @@ fn main() {
 
     loop {
         z_shell.cwd = env::current_dir().unwrap_or(dirs::home_dir().unwrap());
-        print!("ZS {} > ", &z_shell.cwd.as_path().to_str().unwrap().cyan());
+        print!("{} {} > ", "ZS".purple().bold(), &z_shell.cwd.as_path().to_str().unwrap().cyan());
         let _ = stdout().flush();
         stdin().read_line(&mut z_shell.command).expect("Could not parse command!");
 
@@ -92,12 +93,39 @@ fn main() {
         match parts.next().unwrap() {
             "$?" => println!("{}", z_shell.retcode),
             "cd" => {
-                // println!("Changing Dir...");
-                env::set_current_dir(dirs::home_dir().unwrap()).unwrap();
+                // get desired path (if any)
+                let desired_path = parts.next();
+                if desired_path.is_none() {  // if no desired_path provided, go to home dir
+                    let home_dir = dirs::home_dir().unwrap();
+                    env::set_current_dir(&home_dir).unwrap();
+                    z_shell.cwd = home_dir;
+                    z_shell.command.clear();
+                    z_shell.retcode = 0;
+                    continue;
+                }
+
+                // shadow desired_path into PathBuf type
+                let desired_path = PathBuf::from(desired_path.unwrap());
+                if desired_path.exists() {  // check if the path actually exists
+                    let chdir = env::set_current_dir(&desired_path.as_path());
+                    if chdir.is_ok() {
+                        z_shell.cwd = desired_path;
+                        z_shell.command.clear();
+                        z_shell.retcode = 0;
+                    }
+                    else {
+                        z_shell.command.clear();
+                        z_shell.retcode = 1;
+                    }
+                }
+                else {
+                    println!("Error: No such file or directory '{}'", desired_path.to_str().unwrap());
+                    z_shell.command.clear();
+                    z_shell.retcode = 1;
+                }
             },
             "exit" => process::exit(0),
             command => {
-                // FIXME: add command argument support
                 let child = Command::new(command).args(parts.collect::<Vec<_>>()).current_dir(z_shell.cwd).spawn();
                 if child.is_ok() {
                     let retcode = child.unwrap().wait();
